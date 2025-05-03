@@ -1,0 +1,47 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+
+# === Virtual Environments ===
+venv/
+.env/
+.venv/
+mp_env/
+mp310_env/
+
+# === Jupyter Notebooks Checkpoints ===
+.ipynb_checkpoints/
+
+# === VS Code ===
+.vscode/
+
+# === macOS System Files ===
+.DS_Store
+
+# === Logs and Data Dumps ===
+*.log
+*.csv
+*.tsv
+
+# === Test Output ===
+htmlcov/
+.coverage
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.pytest_cache/
+
+# === Compiled Binaries ===
+*.so
+*.dll
+*.dylib
+*.exe
+
+# === MediaPipe Cache ===
+mediapipe/modules/objectron/assets/
+
+# === Misc ===
+*.swp

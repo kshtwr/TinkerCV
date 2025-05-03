@@ -2,67 +2,96 @@ import numpy as np
 import cv2
 from cvzone.HandTrackingModule import HandDetector
 import time
-# import pyautogui
-## using smart tab -> for greater gesture control
-## using a normal pencil/pen as a smart pen based on CV 
+from typing import List, Dict
+import os
 
-def load_image(path):
+def load_image(path: str):
     img = cv2.imread(path)
     if img is None:
         raise FileNotFoundError(f"Could not load image from {path}")
     return img
 
-class ImageManipulator:
-    def __init__(self, frame_width, frame_height):
-        self.startDist = None
+class ImageState:
+    def __init__(self, img, x, y):
+        self.img = img
+        self.ox = x
+        self.oy = y
+        self.w = img.shape[1]
+        self.h = img.shape[0]
         self.scale = 0
-        self.cx = 500
-        self.cy = 500
-        self.ox = 500
-        self.oy = 200
+        self.startDist = None
+        self.selected = False
+        self.original_img = img.copy()
+
+class ImageManipulator:
+    def __init__(self, frame_width: int, frame_height: int):
         self.frame_width = frame_width
         self.frame_height = frame_height
-    
+        self.images: List[ImageState] = []
+        self.active_image_index = None
+        self.second_selected_index = None
+        
+    def add_image(self, img: np.ndarray, x: int, y: int):
+        """Add a new image to the manipulator"""
+        self.images.append(ImageState(img, x, y))
 
-    def handle_zoom(self, lmList1, lmList2, img, img1, detector):
+    def find_selected_image(self, pointer_loc) -> int:
+        """Return index of image under the pointer"""
+        for i, img_state in enumerate(self.images):
+            if (img_state.ox <= pointer_loc[0] <= img_state.ox + img_state.w and 
+                img_state.oy <= pointer_loc[1] <= img_state.oy + img_state.h):
+                return i
+        return None
+
+    def handle_zoom(self, lmList1, lmList2, img, detector):
+        if self.active_image_index is None:
+            return
+        
+        img_state = self.images[self.active_image_index]
         fing_dist, info3, img = detector.findDistance(lmList1[8][0:2], lmList2[8][0:2], img, color=(255,0,255), scale=5)
         
-        if self.startDist is None:
-            self.startDist = fing_dist
+        if img_state.startDist is None:
+            img_state.startDist = fing_dist
         
-        self.scale = int((fing_dist - self.startDist) // 7)
-        self.cx, self.cy = info3[4:]
+        img_state.scale = int((fing_dist - img_state.startDist) // 7)
+        cx, cy = info3[4:]
         
-        h1, w1, _ = img1.shape
-        newH, newW = ((h1 + self.scale)//7)*7, ((w1 + self.scale)//7)*7
-        #print_image(img1, newH, newW)
+        h1, w1, _ = img_state.original_img.shape
+        newH, newW = ((h1 + img_state.scale)//7)*7, ((w1 + img_state.scale)//7)*7
+        
         try:
-            img1_resized = cv2.resize(img1, (newW, newH))  
+            img_state.img = cv2.resize(img_state.original_img, (newW, newH))
+            # Update position to maintain center during zoom
+            img_state.ox = max(0, min(cx - newW // 2, self.frame_width - newW))
+            img_state.oy = max(0, min(cy - newH // 2, self.frame_height - newH))
         except cv2.error:
             print("Error resizing image, scale too large or small")
-            self.scale = 0
-            return img1
+            img_state.scale = 0
 
-        # Update ox and oy to center the image based on zoom
-        self.ox = max(0, min(self.cx - newW // 2, self.frame_width - newW))
-        self.oy = max(0, min(self.cy - newH // 2, self.frame_height - newH))
-
-        return img1_resized
-
-    def handle_pinch(self, lmList1, img, info1):
-        cv2.circle(img, (info1[4], info1[5]), 15, (0, 255, 0), cv2.FILLED)
-        pointer1Loc = lmList1[8][0:2]
+    def handle_pinch(self, lmList, img, info):
+        pointer_loc = lmList[8][0:2]
+        selected_index = self.find_selected_image(pointer_loc)
         
-        if self.ox <= pointer1Loc[0] <= self.ox + self.w and self.oy <= pointer1Loc[1] <= self.oy + self.h:
-            new_ox = pointer1Loc[0] - self.w // 2
-            new_oy = pointer1Loc[1] - self.h // 2
+        if selected_index is not None:
+            img_state = self.images[selected_index]
+            cv2.circle(img, (info[4], info[5]), 15, (0, 255, 0), cv2.FILLED)
+            
+            # Update position based on pointer
+            new_ox = pointer_loc[0] - img_state.w // 2
+            new_oy = pointer_loc[1] - img_state.h // 2
+            
+            # Ensure position stays within frame boundaries
+            img_state.ox = max(0, min(new_ox, self.frame_width - img_state.w))
+            img_state.oy = max(0, min(new_oy, self.frame_height - img_state.h))
+            
+            if self.active_image_index != selected_index:
+                self.active_image_index = selected_index
 
-            # Ensure ox and oy stay within frame boundaries
-            self.ox = max(0, min(new_ox, self.frame_width - self.w))
-            self.oy = max(0, min(new_oy, self.frame_height - self.h))
-        else:
-            pass
-    def handle_hands(self, hands, img, img1, detector):
+    def handle_hands(self, hands, img, detector):
+        if not hands:
+            self.active_image_index = None
+            return
+
         lmList1 = hands[0]["lmList"]
         gap1, info1, img = detector.findDistance(lmList1[4][0:2], lmList1[8][0:2], img, color=(255, 0, 255), scale=5)
 
@@ -75,53 +104,65 @@ class ImageManipulator:
 
                 if gap2 < 60:
                     cv2.circle(img, (info2[4], info2[5]), 15, (0, 255, 0), cv2.FILLED)
-                    
                     self.handle_pinch(lmList2, img, info2)
-                    img1 = self.handle_zoom(lmList1, lmList2, img, img1, detector)
+                    self.handle_zoom(lmList1, lmList2, img, detector)
             else:
-                self.startDist = None
+                for img_state in self.images:
+                    img_state.startDist = None
 
-        return img1
-
-    def overlay_image(self, img, img1):
-        h, w = img1.shape[:2]
-        self.h, self.w = h, w  # Update the current image dimensions
+    def overlay_images(self, img):
+        # Overlay images in reverse order so earlier added images appear on top
+        for img_state in reversed(self.images):
+            h, w = img_state.img.shape[:2]
+            
+            # Ensure position is within frame boundaries
+            img_state.ox = max(0, min(img_state.ox, self.frame_width - w))
+            img_state.oy = max(0, min(img_state.oy, self.frame_height - h))
+            
+            # Create mask for transparent overlay
+            if self.active_image_index is not None and self.images.index(img_state) == self.active_image_index:
+                alpha = 1.0  # Active image fully opaque
+            else:
+                alpha = 0.7  # Inactive images slightly transparent
+            
+            # Overlay image with transparency
+            overlay = img[img_state.oy:img_state.oy+h, img_state.ox:img_state.ox+w].copy()
+            cv2.addWeighted(img_state.img, alpha, overlay, 1-alpha, 0, overlay)
+            img[img_state.oy:img_state.oy+h, img_state.ox:img_state.ox+w] = overlay
+            
+            # Draw border around active image
+            if self.active_image_index is not None and self.images.index(img_state) == self.active_image_index:
+                cv2.rectangle(img, (img_state.ox, img_state.oy), 
+                            (img_state.ox + w, img_state.oy + h), 
+                            (0, 255, 0), 2)
         
-        # Ensure ox and oy are within frame boundaries
-        self.ox = max(0, min(self.ox, self.frame_width - w))
-        self.oy = max(0, min(self.oy, self.frame_height - h))
-        img[self.oy:self.oy+h, self.ox:self.ox+w] = img1
-
         return img
 
-        
-        # Calculate the portion of img1 that fits within the frame
-        '''
-        x_start = max(0, -self.ox)
-        y_start = max(0, -self.oy)
-        x_end = min(w, self.frame_width - self.ox)
-        y_end = min(h, self.frame_height - self.oy)
-        
-        # Calculate where to place the image on the frame
-        frame_x = max(0, self.ox)
-        frame_y = max(0, self.oy)'''
-        
-        # Overlay the visible portion of img1 onto img
-        #img[self.oy:self.oy+(y_end-y_start), self.ox:self.ox+(x_end-x_start)] = img1[y_start:y_end, x_start:x_end]
-        
-        
 def main():
     try:
+        # Initialize camera
         capture = cv2.VideoCapture(0)
         if not capture.isOpened():
             raise IOError("Cannot open webcam")
 
         frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        # Initialize detector and manipulator
         detector = HandDetector(detectionCon=0.8)
         manipulator = ImageManipulator(frame_width, frame_height)
 
-        img1 = load_image("/Users/keshav/Documents/Projects/Tinker_CV/Images/ImagesPNG/1.png")
+        # Load multiple images
+        image_folder = "/Users/keshav/Documents/Projects/Tinker_CV/Images/ImagesPNG/"
+        image_files = [f for f in os.listdir(image_folder) if f.endswith(('.png', '.jpg', '.jpeg'))]
+        
+        # Add images at different initial positions
+        spacing = frame_width // (len(image_files) + 1)
+        for i, image_file in enumerate(image_files):
+            img = load_image(os.path.join(image_folder, image_file))
+            x = spacing * (i + 1) - img.shape[1] // 2
+            y = frame_height // 2 - img.shape[0] // 2
+            manipulator.add_image(img, x, y)
 
         while True:
             success, img = capture.read()
@@ -132,21 +173,19 @@ def main():
             img = cv2.flip(img, 1)
             hands, img = detector.findHands(img, flipType=False)
             
+            # Create white background
             white_overlay = np.ones((frame_height, frame_width, 3), dtype=np.uint8) * 255
-            alpha = 1  # Set the transparency factor (0 = fully transparent, 1 = fully opaque)
-            img = cv2.addWeighted(white_overlay, alpha, img, 1 - alpha, 0)
-            
+            img = cv2.addWeighted(white_overlay, 1, img, 0, 0)
 
             if hands:
-                img1 = manipulator.handle_hands(hands, img, img1, detector)
+                manipulator.handle_hands(hands, img, detector)
+                # Draw hand landmarks
                 for hand in hands:
-                    lmList = hand['lmList']  # Landmark list for the hand
+                    lmList = hand['lmList']
                     for lm in lmList:
                         cv2.circle(img, (lm[0], lm[1]), 10, (0, 0, 0), cv2.FILLED)
 
-
-            
-            img = manipulator.overlay_image(img, img1)
+            img = manipulator.overlay_images(img)
 
             cv2.imshow("Image", img)
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -161,12 +200,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-## SVG image format
-## vector-based scaling
-    ## XXXXXXX cv2.resize XXXXXXXXX
-## don't use 7, use the CAP PROP lib -> ratios
-## try PNG
-
-
-## try making the rescaling/zooming more stable so that it doesn't keep zooming without major movements
+## lab studies - for interactions with images using hand gestures for remote research 
