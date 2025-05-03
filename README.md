@@ -1,7 +1,7 @@
 # TinkerCV
 A computer vision application that enables gesture-based manipulation of images using hand tracking. This project allows users to interact with digital images using natural hand movements, providing features like pinch-to-move and zoom capabilities.
 
-Video Demo: [youtu.be/dN6GUZEtUSs](https://youtu.be/dN6GUZEtUSs)
+Video Demo: [https://youtu.be/qDwAL79giOs](https://youtu.be/qDwAL79giOs)
 
 ## Features
 
