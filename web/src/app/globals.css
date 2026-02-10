@@ -24,9 +24,10 @@ a {
 }
 
 .container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px;
+  max-width: none;
+  margin: 0;
+  padding: 16px 20px 24px;
+  box-sizing: border-box;
 }
 
 .card {
@@ -80,8 +81,10 @@ a {
 }
 
 .stage {
-  width: 100%;
-  aspect-ratio: 16 / 9;
+  /* Fit inside the current screen while keeping 16:9, slightly inset from the edges. */
+  width: 92vw;
+  height: min(90vh, calc(92vw * 9 / 16));
+  margin: 4vh auto;
   border-radius: 16px;
   overflow: hidden;
   background: #05060a;
@@ -98,6 +101,33 @@ a {
   color: rgba(233, 238, 252, 0.72);
   font-size: 13px;
   line-height: 1.4;
+}
+
+.val-card {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: radial-gradient(circle at top left, #1f2937, #020617);
+}
+
+.val-row {
+  justify-content: flex-start;
+}
+
+.val-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(248, 113, 113, 0.65);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.val-option input[type="checkbox"] {
+  accent-color: #a855f7;
+  width: 16px;
+  height: 16px;
 }
 
 
