@@ -51,7 +51,7 @@ export default function Page() {
     "waiting" | "yes" | "no"
   >("waiting");
   const [valentineMessage, setValentineMessage] = useState<string>(
-    "Pinch the Yes box on the video to accept, or the No box to (try to) decline."
+    "PLEASE PLEASE SAY YES 🤞"
   );
 
   const valentineRef = useRef<"waiting" | "yes" | "no">("waiting");
@@ -690,14 +690,14 @@ export default function Page() {
     try {
       await camera.start();
       setStatus("running");
-      setMessage("Pinch the Yes button on the Valentine card to begin.");
+      setMessage("Pinch the Yes button on the Valentine card to be my valentine this year and every year ;)");
 
       // Show the big Valentine card as soon as the camera starts.
       cardVisibleRef.current = true;
       valentineRef.current = "waiting";
       setValentineStatus("waiting");
       setValentineMessage(
-        "Pinch the Yes button on the card to accept the Valentine."
+        "Pinch the Yes button on the card to accept the Valentine (pretty please)."
       );
     } catch (e: unknown) {
       const msg =
@@ -723,17 +723,16 @@ export default function Page() {
     valentineRef.current = "waiting";
     setValentineStatus("waiting");
     setValentineMessage(
-      "Pinch the Yes box on the video to accept, or the No box to (try to) decline."
+      "Pinch the Yes box on the video to accept, DO NOT PRESS NO (PLS)."
     );
   }
 
   return (
     <main className="container stack">
       <div className="stack">
-        <h1 style={{ margin: 0, fontSize: 28 }}>TinkerCV Web</h1>
+        <h1 style={{ margin: 0, fontSize: 28 }}>To my dearest poojiee ❤️</h1>
         <div className="muted">
-          Runs fully in the browser (your webcam never leaves your device). Works
-          on Vercel because there’s no backend.
+          I have a special question for my special lady...
         </div>
       </div>
 
@@ -773,9 +772,7 @@ export default function Page() {
         <br />
         <br />
         <span>
-          Tips: make sure you’re on HTTPS (Vercel preview/prod is) or localhost.
-          Safari sometimes requires the page to be interacted with before camera
-          starts.
+          You get bonus kissy for pinching yes ... just saying!
         </span>
       </div>
     </main>
